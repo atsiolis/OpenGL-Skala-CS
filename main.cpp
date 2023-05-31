@@ -127,7 +127,9 @@ void clippedLines() // display2
     viewportRow = 0; viewportColumn = 0;
     reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
     drawAxes();
+    clock_t t1 = clock();
     csClipLines(lines, xmin, xmax, ymin, ymax, numberOfLines);
+    t1 = clock() - t1;
     drawRect(xmin, xmax, ymax, ymin);    
     typeText(-(RIGHT_BORDER - 250), (TOP_BORDER - 40), "Cohen-Sutherland Line Clipping");
 
@@ -136,9 +138,12 @@ void clippedLines() // display2
     reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
     drawAxes();
     drawRect(xmin, xmax, ymax, ymin);    
+    clock_t t2= clock();
     skalaClipLines(lines, xmin, xmax, ymin, ymax, numberOfLines);
+    t2 = clock() - t2;
     typeText(-(RIGHT_BORDER - 300), (TOP_BORDER - 40), "Skala Line Clipping");
-    
+    printf("Cohen-Sutherland Line Clipping: %3f\n", ((float)t1) / CLOCKS_PER_SEC);
+    printf("Skala Line Clipping: %3f\n", ((float)t2) / CLOCKS_PER_SEC);
     glutSwapBuffers();
 }
 

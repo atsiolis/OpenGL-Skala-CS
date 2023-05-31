@@ -5,9 +5,9 @@
 #include <iostream>
 using namespace std;
 
-const int mask[] = {0, 1, 2, 2, 4, 0, 4, 4, 8, 1, 0, 2, 8, 1, 8, 0};
-const int tab1[] = {4, 3, 0, 3, 1, 4, 0, 3, 2, 2, 4, 2, 1, 1, 0, 4};
-const int tab2[] = {4, 0, 1, 1, 2, 4, 2, 2, 3, 0, 4, 1, 3, 0, 3, 4};
+const int mask[] = { -1, 4, 4, 2, 2, -2, 4, 8, 8, 4, -2, 2, 2, 4, 4, -1 };
+const int tab2[] = { -1, 0, 0, 1, 1, -2, 0, 2, 2, 0, -2, 1, 1, 0, 0, -1 };
+const int tab1[] = { -1, 3, 1, 3, 2, -2, 2, 3, 3, 2, -2, 2, 3, 1, 3, -1 };
 
 // defining the borders of the viewport window
 #define TOP_BORDER 500
@@ -26,15 +26,17 @@ const int SKALA_TOP = 2;    // 0010
 const int SKALA_RIGHT = 4;  // 0100
 const int SKALA_LEFT = 8;   // 1000
 
-struct Line
+struct Point
 {
-    int x1, x2, y1, y2;
+    float x, y;
 };
 
-struct Vector
+struct Line
 {
-    double x, y, z, k;
+    float x1, x2, y1, y2;
 };
+
+
 
 // creating a line using 2 points. A(x1,y1) and B(x2,y2)
 struct Line createLine(int x1, int y1, int x2, int y2)
@@ -219,29 +221,32 @@ void csClipLines(Line *lines, int xmin, int xmax, int ymin, int ymax, int number
     drawLines(final, numberOfLines);
 }
 
-Vector crossProduct(Vector u, Vector v)
+Point crossProduct(Point edge1, Point edge2, Point p1, Point p2)
 {
-    Vector vector;
+    float a1,b1,c1,a2,b2,c2,d,dx,dy;
 
-    vector.x = (u.y * v.z - u.z * v.y);
-    vector.y = (u.z * v.x - u.x * v.z);
-    vector.z = (u.x * v.y - u.y * v.x);
-    return vector;
+    a1=edge1.y-edge2.y;
+    b1=edge2.x-edge1.x;
+    c1=edge1.x*edge2.y-edge2.x*edge1.y;
+
+    a2=p1.y-p2.y;
+    b2=p2.x-p1.x;
+    c2=p1.x*p2.y-p2.x*p1.y;
+
+    d=a1*b2-a2*b1;
+    dx=-c1*b2+c2*b1;
+    dy=-a1*c2+a2*c1;
+
+    return{dx/d,dy/d};
 }
 
-Vector cross(Vector u, Vector v)
-{
-    Vector vector;
-    double z = u.x * v.y - u.y * v.x;
-    vector.x = (u.y * v.z - u.z * v.y)/z;
-    vector.y = (u.z * v.x - u.x * v.z)/z;
-    vector.z = (u.x * v.y - u.y * v.x);
-    return vector;
-}
 
-int dot(Vector u, Vector v)
+int isLeft(Point edge1, Point edge2, Point p)
 {
-    return u.x * v.x + u.y * v.y + u.z * v.z;
+    if (((edge2.y - edge1.y) * p.x + (edge1.x - edge2.x) * p.y + (edge2.x * edge1.y - edge1.x * edge2.y)) < 0)
+        return 0;
+    else
+        return 1;
 }
 
 // checks where the coordinates of a line are
@@ -251,9 +256,9 @@ int skalaComputeCode(double x, double y, int xmin, int xmax, int ymin, int ymax)
     int code = SKALA_INSIDE;
 
     if (x < xmin)   // to the left of rectangle
-        code |= SKALA_LEFT;
+        code = SKALA_LEFT;
     else if (x > xmax)  // to the right of rectangle
-        code |= SKALA_RIGHT;
+        code = SKALA_RIGHT;
     if (y < ymin)   // below the rectangle
         code |= SKALA_BOTTOM;
     else if (y > ymax)  // above the rectangle
@@ -262,150 +267,116 @@ int skalaComputeCode(double x, double y, int xmin, int xmax, int ymin, int ymax)
     return code;
 }
 
-struct Line skalaClip(double x1, double y1, double x2, double y2, int xmin, int xmax, int ymin, int ymax)
+struct Line skalaClip(double x1, double y1, double x2, double y2, float xmin, float xmax, float ymin, float ymax)
 {
-    int newx1 = x1, newx2 = x2, newy1 = y1, newy2 = y2;
     Line final;
-    int i;
-    Vector a, b, newXA, newXB;
-    Vector x[4];
-    Vector e[4];
-    a.x = x1;
-    a.y = y1;
-    a.z = 1;
-    b.x = x2;
-    b.y = y2;
-    b.z = 1;
-    Vector p = crossProduct(a, b);
 
-    x[0].x = xmin;
-    x[0].y = ymin;
-    x[0].z = 1;
-    x[1].x = xmax;
-    x[1].y = ymin;
-    x[1].z = 1;
-    x[2].x = xmax;
-    x[2].y = ymax;
-    x[2].z = 1;
-    x[3].x = xmin;
-    x[3].y = ymax;
-    x[3].z = 1;
+    Point a,b,polygon[4];
 
-    e[0].x = 0;
-    e[0].y = 1;
-    e[0].z = ymin;
-    e[1].x = 1;
-    e[1].y = 0;
-    e[1].z = xmax;
-    e[2].x = 0;
-    e[2].y = 1;
-    e[2].z = ymax;
-    e[3].x = 1;
-    e[3].y = 0;
-    e[3].z = xmin;
+    polygon[0] = {xmin, ymin};
+    polygon[1] = {xmax, ymin}; 
+    polygon[2] = {xmax, ymax};
+    polygon[3] = {xmin, ymax};
 
-    //  Compute region codes for P1, P2
-    int code1 = skalaComputeCode(x1, y1, xmin, xmax, ymin, ymax);
-    int code2 = skalaComputeCode(x2, y2, xmin, xmax, ymin, ymax);
+    a.x=x1;
+    a.y=y1;
+    b.x=x2;
+    b.y=y2;
 
-    if ((code1 == 0) && (code2 == 0))
+    int vertex[4];
+    
+    vertex[0]=isLeft(a,b,polygon[0]);
+    vertex[1]=isLeft(a,b,polygon[1]);
+    vertex[2]=isLeft(a,b,polygon[2]);
+    vertex[3]=isLeft(a,b,polygon[3]);
+
+
+    int c=vertex[3]*8+vertex[2]*4+vertex[1]*2+vertex[0];
+
+    
+    if(tab1[c]!=-1 && tab2[c]!=-1)
     {
-        //if both endpoints lie within rectangle
-        final.x1 = x1;
-        final.x2 = x2;
-        final.y1 = y1;
-        final.y2 = y2;
-        return final;
-        exit;
-    }
-    if (code1 & code2)
-    {
-        exit;
-    }
+        //  Compute region codes for P1, P2
+        int code1 = skalaComputeCode(x1, y1, xmin, xmax, ymin, ymax);
+        int code2 = skalaComputeCode(x2, y2, xmin, xmax, ymin, ymax);
 
-    int c[4];
-    int sum = 0;
-
-    for (i = 0; i < 4; i++)
-    {
-        if (dot(p, x[i]) >= 0)
+        if ((code1 | code2) == 0)
         {
-            //sum |= (1 << i);
-             c[i]=1;
+            //if both endpoints lie within rectangle
+            final.x1 = x1;
+            final.x2 = x2;
+            final.y1 = y1;
+            final.y2 = y2;
+            return final;
         }
-        else
-            c[i] = 0;
-    }
-
-    for (i = 0; i < 3; i++)
-    {
-        if (c[i] != 0)
+        if ((code1 & code2)!=0)
         {
-            sum = sum + pow(2, i);
+            final.x1 = 0;
+            final.x2 = 0;
+            final.y1 = 0;
+            final.y2 = 0;
+            return final;
         }
-    }
 
-    //if both points lie outside the rectangle 
-    if ((sum == 0) || (sum == 15))
-    {
-        exit;
-    }
-
-    int k = tab1[sum];
-    int j = tab2[sum];
-
-    //if there are two intersections of the rectangle 
-    if ((code1 != 0) && (code2 != 0))
-    {
-        newXA = crossProduct(p, e[k]);
-        newXB = crossProduct(p, e[j]);
-        final.x1 = newXA.x;
-        final.y1 = newXA.y;
-        final.x2 = newXB.x;
-        final.y2 = newXB.y;
-        return final;
-    }
-    //if there is only one intersection and point xb is outside 
-    if (code1 == 0)
-    {
-        if ((code2 & mask[sum]) != 0)
+        if (c==0||c==15)
         {
-            newXB = cross(p, e[k]);
+            final.x1 = 0;
+            final.x2 = 0;
+            final.y1 = 0;
+            final.y2 = 0;
+            return final;
+        }
 
-            newx2 = newXB.x;
-            newy2 = newXB.y;
+        int i=tab1[c],j=tab2[c];
+
+        if(code1!=0 && code2!=0)
+        {
+            Point newA=crossProduct(a,b,polygon[i],polygon[(i+1)%4]);
+            Point newB=crossProduct(a,b,polygon[j],polygon[(j+1)%4]);
+            final.x1=newA.x;
+            final.y1=newA.y;
+            final.x2=newB.x;
+            final.y2=newB.y;
+            return final;
         }
         else
         {
-            newXB = cross(p, e[j]);
-            newx2 = newXB.x;
-            newy2 = newXB.y;
+            if(code1==0)
+            {
+                Point newB;
+                if ((code2 & mask[c])!=0)
+                {
+                    newB=crossProduct(a,b,polygon[i],polygon[(i+1)%4]);
+                }
+                else
+                {
+                    newB=crossProduct(a,b,polygon[j],polygon[(j+1)%4]);
+                }
+                final.x1=x1;
+                final.y1=y1;
+                final.x2=newB.x;
+                final.y2=newB.y;
+                return final;
+            }
+            else if(code2==0)
+            {
+                Point newA;
+                if ((code1 & mask[c])!=0)
+                {
+                    newA=crossProduct(a,b,polygon[i],polygon[(i+1)%4]);
+                }
+                else
+                {
+                    newA=crossProduct(a,b,polygon[j],polygon[(j+1)%4]);
+                }
+                final.x1=newA.x;
+                final.y1=newA.y;
+                final.x2=x2;
+                final.y2=y2;
+                return final;
+            }
         }
     }
-
-    //if there is only one intersection and point xa is outside 
-    if (code2 == 0)
-    {
-        if ((code1 & mask[sum]) != 0)
-        {
-            newXA = cross(p, e[k]);
-            newx1 = newXA.x;
-            newy1 = newXA.y;
-        }
-        else
-        {
-            newXA = cross(p, e[j]);
-            newx1 = newXA.x;
-            newy1 = newXA.y;
-        }
-    }
-
-    final.x1=newx1;
-    final.y1=newy1;
-
-    final.x2=newx2;
-    final.y2=newy2;
-    return final;
 }
 
 
@@ -416,7 +387,9 @@ void skalaClipLines(Line *lines, int xmin, int xmax, int ymin, int ymax, int num
 
     for (i = 0; i < numberOfLines; i++)
     {
+        //printf("Line %d: (%f, %f) -> (%f, %f)\n", i, lines[i].x1, lines[i].y1, lines[i].x2, lines[i].y2);
         final[i] = skalaClip(lines[i].x1, lines[i].y1, lines[i].x2, lines[i].y2, xmin, xmax, ymin, ymax);
+        //printf("Line %d: (%f, %f) -> (%f, %f)\n", i, final[i].x1, final[i].y1, final[i].x2, final[i].y2);
     }
 
     drawLines(final, numberOfLines);
